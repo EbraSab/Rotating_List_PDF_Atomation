@@ -44,9 +44,9 @@ pip install arabic-reshaper python-bidi
 
 | Version | Interface | Colors | Arabic Support | Extras |
 | :-- | :-- | :-- | :-- | :-- |
-| **v1** | Command line | Fixed | Optional | Basic rotation [v1.py](v1.py) |
-| **v2** | Tkinter GUI | Fully customizable | Optional | Date range, name editing [v2.py](v2.py) |
-| **v3** | Modern CustomTkinter | Color wheel picker | Optional | Weekday headers [v3.py](v3.py) |
+| **v1**(Rotating_List_v1.py) | Command line | Fixed | Optional | Basic rotation |
+| **v2**(Rotating_List_v2.py) | Tkinter GUI | Fully customizable | Optional | Date range, name editing |
+| **v3**(Rotating_List_v3.py) | Modern CustomTkinter | Color wheel picker | Optional | Weekday headers |
 
 ## 🚀 Quick Start (v3 - Recommended)
 
