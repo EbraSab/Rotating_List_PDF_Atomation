@@ -1,0 +1,424 @@
+"""
+Quran Parts PDF Generator - v2 (Tkinter GUI with English/Arabic Toggle)
+Creates daily PDF schedules for 30 people rotating through Quran Juz' assignments.
+Toggle USE_ARABIC = True/False at the top for language choice.
+"""
+
+import os
+from datetime import datetime, timedelta
+from fpdf import FPDF
+import tkinter as tk
+from tkinter import messagebox, ttk, colorchooser
+
+# ========================================
+# TOGGLE LANGUAGE SUPPORT HERE
+USE_ARABIC = False  # Set True for Arabic names/headers (requires extra pip installs)
+
+# ========================================
+# CONFIGURATION
+FONT_PATH = r"C:\Windows\Fonts\arial.ttf"  # Change to MAJALLA.TTF for Arabic
+START_DATE = datetime(2025, 8, 16)
+desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+folder_name = "Parts"
+folder_path = os.path.join(desktop_path, folder_name)
+os.makedirs(folder_path, exist_ok=True)
+names_file = os.path.join(folder_path, "names.txt")
+
+# Language content
+if USE_ARABIC:
+    # Requires: pip install arabic-reshaper python-bidi
+    try:
+        import arabic_reshaper
+        from bidi.algorithm import get_display
+        
+        HEADERS = ["رقم الجزء", "الاسم", "رقم الجزء", "الاسم"]
+        DAYS_ARABIC = {
+            "Monday": "الاثنين", "Tuesday": "الثلاثاء", "Wednesday": "الأربعاء",
+            "Thursday": "الخميس", "Friday": "الجمعة", "Saturday": "السبت", "Sunday": "الأحد"
+        }
+        DEFAULT_NAMES = [
+            "نهال", "محمد", "طيبة", "تسنيم", "الاء", "صباح", "يوم", "هدى", "نجلة", "سوسن",
+            "صباح", "يوم", "محمد", "احمد", "حمودي", "بيداء", "رشا", "سعد", "علي", "مها",
+            "ريم", "ابراهيم", "نور اسامة", "شيماء", "رسل", "نبا", "سعاد", "نور احمد", "امي", "أسامة"
+        ]
+        
+        def reshape_arabic(text):
+            reshaped = arabic_reshaper.reshape(text)
+            return get_display(reshaped)
+    except ImportError:
+        print("⚠️ Arabic libraries not found. Install: pip install arabic-reshaper python-bidi")
+        USE_ARABIC = False
+        HEADERS = ["Part #", "Name", "Part #", "Name"]
+        DAYS_ARABIC = {}
+        DEFAULT_NAMES = [
+            "Nathan", "Michael", "Taylor", "Jessica", "Alex", "Sarah", "David", "Emily", 
+            "James", "Olivia", "Sarah", "David", "Michael", "Andrew", "Henry", 
+            "Bella", "Rachel", "Samuel", "Oliver", "Mia", "Riley", "Isaac", 
+            "Noah James", "Sophia", "Russell", "Nora", "Susan", "Noah Andrew", "Amy", "Oscar"
+        ]
+        def reshape_arabic(text):
+            return text
+else:
+    HEADERS = ["Part #", "Name", "Part #", "Name"]
+    DAYS_ARABIC = {}
+    DEFAULT_NAMES = [
+        "Nathan", "Michael", "Taylor", "Jessica", "Alex", "Sarah", "David", "Emily", 
+        "James", "Olivia", "Sarah", "David", "Michael", "Andrew", "Henry", 
+        "Bella", "Rachel", "Samuel", "Oliver", "Mia", "Riley", "Isaac", 
+        "Noah James", "Sophia", "Russell", "Nora", "Susan", "Noah Andrew", "Amy", "Oscar"
+    ]
+    def reshape_arabic(text):
+        return text
+
+# ========================================
+# HELPERS
+def load_names():
+    if os.path.exists(names_file):
+        with open(names_file, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    return DEFAULT_NAMES.copy()
+
+def save_names(names_list):
+    with open(names_file, "w", encoding="utf-8") as f:
+        for name in names_list:
+            f.write(name + "\n")
+
+def days_since_start(start_date, current_date):
+    delta = current_date.date() - start_date.date()
+    return delta.days if delta.days >= 0 else 0
+
+def rotate_list(lst, n):
+    n = n % len(lst)
+    return lst[-n:] + lst[:-n]
+
+def hex_to_rgb(hex_color):
+    hex_color = (hex_color or "#000000").lstrip("#")
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def get_day_name(date):
+    day_english = date.strftime("%A")
+    return DAYS_ARABIC.get(day_english, day_english)
+
+# ========================================
+# PDF GENERATION
+class PDF(FPDF):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_font('Arial', '', FONT_PATH, uni=True)
+        self.add_font('Arial', 'B', FONT_PATH, uni=True)
+
+def generate_pdf(names, day_num, date, filename, colors):
+    pdf = PDF()
+    pdf.set_margins(5, 5, 5)
+    pdf.add_page()
+    
+    # Header with date and day name
+    pdf.set_font("Arial", 'B', 38)
+    header_text = f"{date.strftime('%Y/%m/%d')} {get_day_name(date)}"
+    pdf.cell(0, 15, reshape_arabic(header_text), ln=1, align='C')
+    pdf.ln(5)
+    
+    # Table setup
+    col_name_w, col_num_w, row_h = 75, 20, 15
+    
+    # Header row
+    header_fill_rgb = hex_to_rgb(colors.get("header_fill"))
+    header_text_rgb = hex_to_rgb(colors.get("header_text"))
+    border_rgb = hex_to_rgb(colors.get("borders"))
+    
+    pdf.set_draw_color(*border_rgb)
+    pdf.set_fill_color(*header_fill_rgb)
+    pdf.set_text_color(*header_text_rgb)
+    pdf.set_line_width(1.2)
+    pdf.set_font("Arial", 'B', 16)
+    
+    for header in HEADERS:
+        pdf.cell(col_num_w if "Part" in header or "رقم" in header else col_name_w, 
+                row_h, reshape_arabic(header), border=1, align='C', fill=True)
+    pdf.ln()
+    
+    # Data rows
+    row1_rgb = hex_to_rgb(colors.get("row_bg1"))
+    row2_rgb = hex_to_rgb(colors.get("row_bg2"))
+    text_rgb = hex_to_rgb(colors.get("text"))
+    numbers_rgb = hex_to_rgb(colors.get("numbers"))
+    names_bg_rgb = hex_to_rgb(colors.get("names_bg"))
+    
+    pdf.set_draw_color(*border_rgb)
+    pdf.set_line_width(1.2)
+    
+    half = len(names) // 2
+    numbers_left, numbers_right = list(range(1, 16)), list(range(16, 31))
+    right_names, left_names = names[half:], names[:half]
+    
+    for i in range(half):
+        row_fill = row1_rgb if i % 2 == 0 else row2_rgb
+        
+        # Right column number
+        pdf.set_fill_color(*row_fill)
+        pdf.set_text_color(*numbers_rgb)
+        pdf.set_font("Arial", 'B', 28)
+        pdf.cell(col_num_w, row_h, str(numbers_right[i]), border=1, align='C', fill=True)
+        
+        # Right column name
+        pdf.set_fill_color(*names_bg_rgb)
+        pdf.set_text_color(*text_rgb)
+        pdf.cell(col_name_w, row_h, reshape_arabic(right_names[i]), border=1, align='C', fill=True)
+        
+        # Left column number
+        pdf.set_fill_color(*row_fill)
+        pdf.set_text_color(*numbers_rgb)
+        pdf.cell(col_num_w, row_h, str(numbers_left[i]), border=1, align='C', fill=True)
+        
+        # Left column name
+        pdf.set_fill_color(*names_bg_rgb)
+        pdf.set_text_color(*text_rgb)
+        pdf.cell(col_name_w, row_h, reshape_arabic(left_names[i]), border=1, align='C', fill=True)
+        
+        pdf.ln()
+    
+    pdf.output(filename)
+
+# ========================================
+# TKINTER GUI
+class NamesDateApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title(f"Quran Parts PDF Generator v2 - {'Arabic' if USE_ARABIC else 'English'} Mode")
+        self.geometry("800x700")
+        self.configure(bg="#dbeffd")
+        
+        # Status label
+        lang_status = tk.Label(self, text=f"Language: {'Arabic*' if USE_ARABIC else 'English'}", 
+                              bg="#dbeffd", font=("Arial", 12, "bold"), 
+                              fg="orange" if USE_ARABIC else "green")
+        lang_status.grid(row=0, column=0, columnspan=2, pady=10)
+        
+        # Date selection frame
+        date_frame = tk.Frame(self, bg="#edf6ff", bd=2, relief="ridge")
+        date_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+        
+        tk.Label(date_frame, text="Start Date (YYYY/MM/DD):", bg="#edf6ff").grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        tk.Label(date_frame, text="End Date (YYYY/MM/DD):", bg="#edf6ff").grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        tk.Label(date_frame, text="Preview Date (YYYY/MM/DD):", bg="#edf6ff").grid(row=2, column=0, padx=5, pady=5, sticky="e")
+        
+        self.start_date_entry = tk.Entry(date_frame, width=15, font=("Arial", 12))
+        self.start_date_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.start_date_entry.insert(0, datetime.now().strftime("%Y/%m/%d"))
+        
+        self.end_date_entry = tk.Entry(date_frame, width=15, font=("Arial", 12))
+        self.end_date_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.end_date_entry.insert(0, datetime.now().strftime("%Y/%m/%d"))
+        
+        self.preview_date_entry = tk.Entry(date_frame, width=15, font=("Arial", 12))
+        self.preview_date_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.preview_date_entry.insert(0, datetime.now().strftime("%Y/%m/%d"))
+        self.preview_date_entry.bind("<KeyRelease>", self.update_names_order)
+        
+        tk.Button(date_frame, text="Update Names Order", bg="#007bff", fg="white",
+                 font=("Arial", 10, "bold"), command=self.update_names_order)\
+            .grid(row=3, column=0, columnspan=2, pady=10)
+        
+        # Names editing frame
+        names_frame = tk.Frame(self, bg="#f0f7ff", bd=2, relief="groove")
+        names_frame.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=10, pady=10)
+        
+        self.names_header = tk.Label(names_frame, text="Edit the names (showing order for selected date):", 
+                                    bg="#f0f7ff", font=("Arial", 12, "bold"))
+        self.names_header.pack(pady=5, anchor="w", padx=6)
+        
+        # Load saved names or default
+        self.original_names = load_names()
+        
+        cols_container = tk.Frame(names_frame, bg="#f0f7ff")
+        cols_container.pack(fill="both", expand=True, padx=6, pady=6)
+        
+        # Right column (numbers 16..30)
+        right_col = tk.Frame(cols_container, bg="#f0f7ff")
+        right_col.pack(side="left", fill="both", expand=True, padx=(0,8))
+        tk.Label(right_col, text="Parts 16-30", bg="#f0f7ff", font=("Arial", 11, "bold")).pack(anchor="w")
+        
+        # Left column (numbers 1..15)
+        left_col = tk.Frame(cols_container, bg="#f0f7ff")
+        left_col.pack(side="left", fill="both", expand=True, padx=(8,0))
+        tk.Label(left_col, text="Parts 1-15", bg="#f0f7ff", font=("Arial", 11, "bold")).pack(anchor="w")
+        
+        self.left_entries = []   # corresponds to names[:15] (numbers 1..15)
+        self.right_entries = []  # corresponds to names[15:] (numbers 16..30)
+        
+        for i in range(15):
+            # right column row (number 16..30)
+            r_row = tk.Frame(right_col, bg="#f0f7ff")
+            r_row.pack(fill="x", pady=2)
+            r_num = tk.Label(r_row, text=str(16 + i), width=4, anchor="e", bg="#f0f7ff", font=("Arial", 11))
+            r_num.pack(side="left")
+            r_ent = tk.Entry(r_row, font=("Arial", 12))
+            r_ent.pack(side="left", fill="x", expand=True, padx=(6,0))
+            r_ent.bind("<KeyRelease>", self.auto_save_names)
+            self.right_entries.append(r_ent)
+            
+            # left column row (number 1..15)
+            l_row = tk.Frame(left_col, bg="#f0f7ff")
+            l_row.pack(fill="x", pady=2)
+            l_num = tk.Label(l_row, text=str(1 + i), width=4, anchor="e", bg="#f0f7ff", font=("Arial", 11))
+            l_num.pack(side="left")
+            l_ent = tk.Entry(l_row, font=("Arial", 12))
+            l_ent.pack(side="left", fill="x", expand=True, padx=(6,0))
+            l_ent.bind("<KeyRelease>", self.auto_save_names)
+            self.left_entries.append(l_ent)
+        
+        # Initialize with names for the preview date
+        self.update_names_order()
+        
+        # Color selection frame
+        color_frame = tk.Frame(self, bg="#e6f7ff", bd=2, relief="ridge")
+        color_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=10)
+        
+        tk.Label(color_frame, text="Select Colors for PDF:", bg="#e6f7ff", font=("Arial", 14, "bold"))\
+            .grid(row=0, column=0, columnspan=3, pady=10)
+        
+        color_defs = [
+         ("header_fill", "Header Fill", "#000000"),
+         ("header_text", "Header Text", "#FFFFFF"),
+         ("row_bg1", "Row 1 Background", "#ababab"),
+         ("row_bg2", "Row 2 Background", "#FFFFFF"),
+         ("names_bg", "Names Background", "#000000"),
+         ("text", "Text Color", "#FFFFFF"),
+         ("numbers", "Numbers Color", "#ff0000"),
+         ("borders", "Borders Color", "#00af50"),
+     ]
+        
+        self.color_vars = {}
+        for i, (key, label, default) in enumerate(color_defs):
+            tk.Label(color_frame, text=label + ":", bg="#e6f7ff", font=("Arial", 12))\
+                .grid(row=i+1, column=0, sticky="e", padx=5, pady=5)
+            color_var = tk.StringVar(value=default)
+            self.color_vars[key] = color_var
+            color_entry = tk.Entry(color_frame, textvariable=color_var, font=("Arial", 12), width=10)
+            color_entry.grid(row=i+1, column=1, padx=5, pady=5)
+            color_button = tk.Button(color_frame, text="Choose", bg=default, fg="white", font=("Arial", 10))
+            color_button.grid(row=i+1, column=2, padx=5, pady=5)
+            color_button.configure(command=lambda var=color_var, btn=color_button: self.choose_color(var, btn))
+        
+        # Generate button
+        button_frame = tk.Frame(self, bg="#a4ccfe")
+        button_frame.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        
+        tk.Button(button_frame, text="Generate PDFs for Date Range", bg="#28a745", fg="white",
+                 font=("Arial", 14, "bold"), command=self.generate_pdfs)\
+            .pack(side="left", padx=20, pady=10)
+        
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=2)
+        self.grid_rowconfigure(2, weight=1)
+    
+    def update_names_order(self, event=None):
+        try:
+            preview_date = datetime.strptime(self.preview_date_entry.get().strip(), "%Y/%m/%d")
+            day_num = days_since_start(START_DATE, preview_date)
+            rotated_names = rotate_list(self.original_names, day_num)
+            
+            self.names_header.config(text=f"Names order for {preview_date.strftime('%Y/%m/%d')} (Day {day_num}):")
+            
+            for entry in self.left_entries + self.right_entries:
+                entry.delete(0, tk.END)
+            
+            for i in range(15):
+                if i < len(rotated_names):
+                    self.left_entries[i].insert(0, rotated_names[i])
+                if i + 15 < len(rotated_names):
+                    self.right_entries[i].insert(0, rotated_names[i + 15])
+        except ValueError:
+            self.names_header.config(text="Edit the names (invalid preview date - showing original order):")
+            for entry in self.left_entries + self.right_entries:
+                entry.delete(0, tk.END)
+            for i in range(15):
+                if i < len(self.original_names):
+                    self.left_entries[i].insert(0, self.original_names[i])
+                if i + 15 < len(self.original_names):
+                    self.right_entries[i].insert(0, self.original_names[i + 15])
+    
+    def auto_save_names(self, event=None):
+        try:
+            preview_date = datetime.strptime(self.preview_date_entry.get().strip(), "%Y/%m/%d")
+            day_num = days_since_start(START_DATE, preview_date)
+            
+            current_rotated_names = []
+            for entry in self.left_entries:
+                current_rotated_names.append(entry.get().strip())
+            for entry in self.right_entries:
+                current_rotated_names.append(entry.get().strip())
+            
+            if len(current_rotated_names) == 30:
+                reverse_rotation = -day_num % 30
+                original_order = rotate_list(current_rotated_names, reverse_rotation)
+                self.original_names = original_order
+                save_names(original_order)
+        except ValueError:
+            names_list = []
+            for entry in self.left_entries:
+                names_list.append(entry.get().strip())
+            for entry in self.right_entries:
+                names_list.append(entry.get().strip())
+            
+            if len(names_list) == 30:
+                self.original_names = names_list
+                save_names(names_list)
+    
+    def choose_color(self, color_var, btn=None):
+        color_code = colorchooser.askcolor(title="Choose Color")[1]
+        if not color_code:
+            return
+        try:
+            color_var.set(color_code)
+        except Exception:
+            pass
+        if btn is not None:
+            try:
+                btn.configure(bg=color_code)
+            except Exception:
+                pass
+    
+    def generate_pdfs(self):
+        try:
+            start_date = datetime.strptime(self.start_date_entry.get().strip(), "%Y/%m/%d")
+            end_date = datetime.strptime(self.end_date_entry.get().strip(), "%Y/%m/%d")
+        except ValueError:
+            messagebox.showerror("Invalid Date", "Please enter valid start and end dates in format YYYY/MM/DD")
+            return
+        
+        if start_date > end_date:
+            messagebox.showerror("Date Error", "Start date must be before or equal to end date.")
+            return
+        
+        if len(self.original_names) != 30 or any(not name.strip() for name in self.original_names):
+            messagebox.showerror("Invalid Names", "Please ensure all 30 names are filled.")
+            return
+        
+        colors = {key: var.get() for key, var in self.color_vars.items()}
+        current_date = start_date
+        generated = 0
+        
+        while current_date <= end_date:
+            day_num = days_since_start(START_DATE, current_date)
+            rotated_names = rotate_list(self.original_names, day_num)
+            date_str = current_date.strftime("%m-%d")
+            pdf_filename = f"{date_str}.pdf"
+            pdf_path = os.path.join(folder_path, pdf_filename)
+            generate_pdf(rotated_names, day_num, current_date, pdf_path, colors)
+            current_date += timedelta(days=1)
+            generated += 1
+        
+        messagebox.showinfo("PDF Generation", 
+                           f"Generated {generated} PDFs for dates from {start_date.strftime('%Y/%m/%d')} to {end_date.strftime('%Y/%m/%d')} in folder:\n{folder_path}")
+
+# ========================================
+# RUN
+if __name__ == "__main__":
+    print("📄 Quran Parts PDF Generator v2 (Tkinter)")
+    print(f"Language mode: {'Arabic' if USE_ARABIC else 'English'}")
+    if USE_ARABIC:
+        print("💡 Install Arabic support: pip install arabic-reshaper python-bidi")
+    print(f"Output folder: {folder_path}")
+    app = NamesDateApp()
+    app.mainloop()
