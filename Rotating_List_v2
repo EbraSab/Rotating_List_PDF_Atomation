@@ -37,9 +37,9 @@ if USE_ARABIC:
             "Thursday": "الخميس", "Friday": "الجمعة", "Saturday": "السبت", "Sunday": "الأحد"
         }
         DEFAULT_NAMES = [
-            "نهال", "محمد", "طيبة", "تسنيم", "الاء", "صباح", "يوم", "هدى", "نجلة", "سوسن",
-            "صباح", "يوم", "محمد", "احمد", "حمودي", "بيداء", "رشا", "سعد", "علي", "مها",
-            "ريم", "ابراهيم", "نور اسامة", "شيماء", "رسل", "نبا", "سعاد", "نور احمد", "امي", "أسامة"
+            "عبدالله", "فاطمة", "أحمد", "مريم", "عمر", "زينب", "خالد", "نور", "يوسف", "سارة",
+            "إبراهيم", "عائشة", "محمود", "ليلى", "حسن", "رقية", "علي", "سمية", "مصطفى", "هدى",
+            "بشرى", "سلمى", "عبدالرحمن", "أسماء", "طارق", "نادية", "فيصل", "منى", "سعيد", "جميلة"
         ]
         
         def reshape_arabic(text):
@@ -189,7 +189,7 @@ class NamesDateApp(tk.Tk):
         self.configure(bg="#dbeffd")
         
         # Status label
-        lang_status = tk.Label(self, text=f"Language: {'Arabic*' if USE_ARABIC else 'English'}", 
+        lang_status = tk.Label(self, text=f"Language: {'Arabic' if USE_ARABIC else 'English'}", 
                               bg="#dbeffd", font=("Arial", 12, "bold"), 
                               fg="orange" if USE_ARABIC else "green")
         lang_status.grid(row=0, column=0, columnspan=2, pady=10)
