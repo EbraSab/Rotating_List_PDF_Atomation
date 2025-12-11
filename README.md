@@ -1,5 +1,3 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
-
 # Quran Parts PDF Generator
 
 This tool creates beautiful PDF schedules for assigning 30 people to daily Quran recitation parts (called "Juz'"). It automatically rotates names daily starting from a set date, so everyone gets a fair turn. Perfect for mosques, study groups, or family Quran schedules!
